@@ -1,0 +1,607 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Stroopwafel — KITA Remix</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --black:#0a0a0a; --white:#f5f5f0; --yellow:#FCCC0A;
+  --blue:#0039A6; --red:#EE352E; --orange:#FF6319;
+  --green:#00933C; --purple:#6D2F8E; --gray:#A7A9AC;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+html,body{width:100%;min-height:100vh;background:var(--black);overflow-x:hidden;}
+body{font-family:'DM Mono',monospace;color:var(--white);}
+#app{max-width:640px;margin:0 auto;display:flex;flex-direction:column;min-height:100vh;}
+#top-bar{background:var(--black);border-bottom:3px solid var(--yellow);padding:14px 20px 12px;display:flex;align-items:flex-start;justify-content:space-between;}
+.release-info h1{font-family:'Bebas Neue',sans-serif;font-size:28px;letter-spacing:2px;line-height:1;color:var(--white);}
+.release-info .meta{font-size:10px;letter-spacing:3px;color:var(--gray);text-transform:uppercase;margin-top:3px;}
+.badges{display:flex;gap:5px;align-items:center;padding-top:4px;}
+.badge{width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:'Bebas Neue',sans-serif;font-size:13px;font-weight:700;flex-shrink:0;border:2px solid rgba(255,255,255,0.15);}
+#score-bar{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;border-bottom:1px solid rgba(255,255,255,0.1);background:#111;}
+.score-cell{padding:8px 12px;text-align:center;border-right:1px solid rgba(255,255,255,0.08);}
+.score-cell:last-child{border-right:none;}
+.score-label{font-size:9px;letter-spacing:2px;color:var(--gray);text-transform:uppercase;}
+.score-val{font-family:'Bebas Neue',sans-serif;font-size:20px;letter-spacing:1px;color:var(--yellow);line-height:1.1;}
+#canvas-wrap{position:relative;width:100%;background:#fff;flex:1;}
+#gc{display:block;width:100%;height:auto;}
+#overlay{position:absolute;inset:0;background:rgba(0,0,0,0.82);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;z-index:20;}
+#overlay.hidden{display:none;}
+.overlay-title{font-family:'Bebas Neue',sans-serif;font-size:36px;letter-spacing:4px;color:var(--white);text-align:center;line-height:1;}
+.overlay-sub{font-size:11px;letter-spacing:2px;color:var(--gray);text-align:center;text-transform:uppercase;}
+.overlay-score{font-family:'Bebas Neue',sans-serif;font-size:52px;color:var(--yellow);letter-spacing:2px;line-height:1;}
+#name-input{background:transparent;border:1.5px solid var(--yellow);color:var(--white);font-family:'DM Mono',monospace;font-size:16px;padding:8px 16px;text-align:center;width:200px;letter-spacing:2px;outline:none;}
+#name-input::placeholder{color:rgba(255,255,255,0.3);}
+.btn{background:var(--yellow);color:var(--black);border:none;font-family:'Bebas Neue',sans-serif;font-size:18px;letter-spacing:3px;padding:10px 32px;cursor:pointer;}
+.btn:hover{opacity:0.9;}
+.btn-ghost{background:transparent;color:var(--gray);border:1px solid rgba(255,255,255,0.2);font-family:'Bebas Neue',sans-serif;font-size:14px;letter-spacing:2px;padding:7px 20px;cursor:pointer;}
+.btn-ghost:hover{color:var(--white);}
+#audio-bar{background:var(--black);border-bottom:1px solid rgba(255,255,255,0.08);padding:5px 20px;display:flex;align-items:center;gap:8px;font-size:10px;letter-spacing:2px;color:var(--gray);text-transform:uppercase;}
+.audio-dot{width:6px;height:6px;border-radius:50%;background:var(--gray);transition:background 0.3s;}
+.audio-dot.playing{background:var(--green);}
+#leaderboard-panel{background:#111;border-top:3px solid var(--yellow);padding:16px 20px;}
+.lb-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;}
+.lb-title{font-family:'Bebas Neue',sans-serif;font-size:18px;letter-spacing:3px;color:var(--yellow);}
+.lb-refresh{font-size:10px;color:var(--gray);letter-spacing:1px;cursor:pointer;text-transform:uppercase;}
+.lb-refresh:hover{color:var(--white);}
+.lb-row{display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.05);font-size:12px;}
+.lb-row:last-child{border-bottom:none;}
+.lb-rank{font-family:'Bebas Neue',sans-serif;font-size:16px;color:var(--gray);min-width:20px;}
+.lb-rank.top{color:var(--yellow);}
+.lb-name{flex:1;color:var(--white);letter-spacing:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.lb-pts{font-family:'Bebas Neue',sans-serif;font-size:16px;color:var(--yellow);letter-spacing:1px;}
+.lb-empty{font-size:11px;color:var(--gray);letter-spacing:1px;padding:8px 0;}
+#dpad{
+  position:fixed;
+  bottom:0; left:50%;
+  transform:translateX(-50%);
+  width:100%; max-width:640px;
+  background:rgba(10,10,10,0.92);
+  border-top:2px solid var(--yellow);
+  padding:12px 0 18px;
+  display:grid;
+  place-items:center;
+  z-index:100;
+  backdrop-filter:blur(6px);
+  -webkit-backdrop-filter:blur(6px);
+}
+.dpad-grid{display:grid;grid-template-areas:'. u .' 'l . r' '. d .';gap:8px;}
+.dpad-btn{
+  width:64px;height:64px;
+  background:rgba(255,255,255,0.08);
+  border:1.5px solid rgba(255,255,255,0.2);
+  border-radius:12px;
+  color:var(--white);
+  font-size:26px;
+  cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  -webkit-tap-highlight-color:transparent;
+  user-select:none;
+  transition:background 0.1s, transform 0.1s;
+}
+.dpad-btn:active{background:rgba(252,204,10,0.25);border-color:var(--yellow);transform:scale(0.92);}
+#dpad-spacer{height:180px;}
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="top-bar">
+    <div class="release-info">
+      <h1>Stroopwafel</h1>
+      <div class="meta">KITA Remix &nbsp;·&nbsp; OUT NOW</div>
+    </div>
+    <div class="badges">
+      <span class="badge" style="background:#EE352E">1</span>
+      <span class="badge" style="background:#FF6319">B</span>
+      <span class="badge" style="background:#FCCC0A;color:#000">N</span>
+      <span class="badge" style="background:#996633">Q</span>
+      <span class="badge" style="background:#6D2F8E">7</span>
+      <span class="badge" style="background:#808183">S</span>
+    </div>
+  </div>
+  <div id="audio-bar">
+    <div class="audio-dot" id="audio-dot"></div>
+    <span id="audio-status">loading track...</span>
+  </div>
+  <div id="score-bar">
+    <div class="score-cell"><div class="score-label">Score</div><div class="score-val" id="score-val">0</div></div>
+    <div class="score-cell"><div class="score-label">Speed</div><div class="score-val" id="speed-val">1</div></div>
+    <div class="score-cell"><div class="score-label">Enemies</div><div class="score-val" id="enemy-val">0</div></div>
+    <div class="score-cell"><div class="score-label">Best</div><div class="score-val" id="best-val">0</div></div>
+  </div>
+  <div id="canvas-wrap">
+    <canvas id="gc"></canvas>
+    <div id="overlay">
+      <div class="overlay-title">NYC SUBWAY<br>SNAKE</div>
+      <div class="overlay-sub">Stroopwafel — KITA Remix</div>
+      <button class="btn" id="start-btn">ENTER STATION</button>
+      <div class="overlay-sub" style="margin-top:4px">Arrow keys or D-pad · Collect waffles · Avoid enemies</div>
+    </div>
+  </div>
+  <div id="dpad-spacer"></div>
+  <div id="dpad">
+    <div class="dpad-grid">
+      <button class="dpad-btn" style="grid-area:u" data-dir="UP">▲</button>
+      <button class="dpad-btn" style="grid-area:l" data-dir="LEFT">◀</button>
+      <button class="dpad-btn" style="grid-area:r" data-dir="RIGHT">▶</button>
+      <button class="dpad-btn" style="grid-area:d" data-dir="DOWN">▼</button>
+    </div>
+  </div>
+  <div id="leaderboard-panel">
+    <div class="lb-header">
+      <div class="lb-title">🚇 Top Riders</div>
+      <span class="lb-refresh" id="lb-refresh">↻ refresh</span>
+    </div>
+    <div id="lb-list"><div class="lb-empty">Loading leaderboard...</div></div>
+  </div>
+</div>
+<audio id="track" preload="auto">
+  <source src="stroopwafel_kita.mp3" type="audio/mpeg">
+</audio>
+<script>
+const canvas = document.getElementById('gc');
+const ctx = canvas.getContext('2d');
+const CELL = 20;
+let W, H, COLS, ROWS;
+
+function resize() {
+  const wrap = document.getElementById('canvas-wrap');
+  W = wrap.clientWidth;
+  COLS = Math.floor(W / CELL);
+  ROWS = Math.floor(COLS * 0.75);
+  H = ROWS * CELL;
+  canvas.width = COLS * CELL;
+  canvas.height = H;
+}
+resize();
+
+const LINES = [
+  {l:'1',c:'#EE352E'},{l:'2',c:'#EE352E'},{l:'3',c:'#EE352E'},
+  {l:'4',c:'#00933C'},{l:'5',c:'#00933C'},{l:'6',c:'#00933C'},
+  {l:'7',c:'#6D2F8E'},
+  {l:'A',c:'#0039A6'},{l:'C',c:'#0039A6'},{l:'E',c:'#0039A6'},
+  {l:'B',c:'#FF6319'},{l:'D',c:'#FF6319'},{l:'F',c:'#FF6319'},{l:'M',c:'#FF6319'},
+  {l:'G',c:'#6CBE45'},
+  {l:'J',c:'#996633'},{l:'Z',c:'#996633'},
+  {l:'L',c:'#A7A9AC'},
+  {l:'N',c:'#FCCC0A'},{l:'Q',c:'#FCCC0A'},{l:'R',c:'#FCCC0A'},{l:'W',c:'#FCCC0A'},
+  {l:'S',c:'#808183'},
+];
+
+const ENEMY_COLORS = ['#EE352E','#FF6319','#00933C','#6D2F8E','#6CBE45','#996633'];
+
+function getBgLines() {
+  const c = COLS, r = ROWS;
+  return [
+    {pts:[[0,Math.floor(r*0.28)],[c,Math.floor(r*0.28)]],c:'#EE352E',w:6},
+    {pts:[[0,Math.floor(r*0.38)],[c,Math.floor(r*0.38)]],c:'#0039A6',w:6},
+    {pts:[[0,Math.floor(r*0.62)],[c,Math.floor(r*0.62)]],c:'#FCCC0A',w:5},
+    {pts:[[0,Math.floor(r*0.72)],[Math.floor(c*0.55),Math.floor(r*0.72)],[Math.floor(c*0.55),r]],c:'#FF6319',w:5},
+    {pts:[[Math.floor(c*0.18),0],[Math.floor(c*0.18),r]],c:'#00933C',w:5},
+    {pts:[[Math.floor(c*0.38),0],[Math.floor(c*0.38),Math.floor(r*0.55)],[c,Math.floor(r*0.55)]],c:'#6D2F8E',w:5},
+    {pts:[[Math.floor(c*0.62),0],[Math.floor(c*0.62),r]],c:'#6CBE45',w:4},
+    {pts:[[Math.floor(c*0.82),0],[Math.floor(c*0.82),Math.floor(r*0.45)],[c,Math.floor(r*0.45)]],c:'#A7A9AC',w:4},
+    {pts:[[0,Math.floor(r*0.85)],[Math.floor(c*0.3),Math.floor(r*0.85)],[Math.floor(c*0.3),r]],c:'#996633',w:4},
+  ];
+}
+
+function drawBg() {
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0,0,canvas.width,H);
+  getBgLines().forEach(line => {
+    ctx.save();
+    ctx.strokeStyle = line.c + '28';
+    ctx.lineWidth = line.w * CELL * 0.6;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.beginPath();
+    line.pts.forEach((p,i) => {
+      const x = p[0]*CELL+CELL/2, y = p[1]*CELL+CELL/2;
+      i===0 ? ctx.moveTo(x,y) : ctx.lineTo(x,y);
+    });
+    ctx.stroke();
+    ctx.restore();
+  });
+  ctx.strokeStyle = 'rgba(0,0,0,0.04)';
+  ctx.lineWidth = 0.5;
+  for(let x=0;x<=canvas.width;x+=CELL){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,H);ctx.stroke();}
+  for(let y=0;y<=H;y+=CELL){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(canvas.width,y);ctx.stroke();}
+}
+
+// draw stroopwafel icon
+function drawWaffle(cx, cy, r) {
+  ctx.save();
+  // outer circle golden
+  ctx.fillStyle = '#FCCC0A';
+  ctx.strokeStyle = '#c49a00';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.arc(cx, cy, r, 0, Math.PI*2);
+  ctx.fill();
+  ctx.stroke();
+
+  // waffle grid clipped inside circle
+  ctx.beginPath();
+  ctx.arc(cx, cy, r-2, 0, Math.PI*2);
+  ctx.clip();
+
+  // caramel fill
+  ctx.fillStyle = '#c47c1a';
+  ctx.fillRect(cx-r, cy-r, r*2, r*2);
+
+  // grid lines diagonal
+  ctx.strokeStyle = '#a85e10';
+  ctx.lineWidth = 1;
+  const step = 4;
+  for(let i=-r*2; i<r*2; i+=step) {
+    ctx.beginPath();ctx.moveTo(cx+i,cy-r*2);ctx.lineTo(cx+i+r*2,cy+r*2);ctx.stroke();
+    ctx.beginPath();ctx.moveTo(cx+i,cy-r*2);ctx.lineTo(cx+i-r*2,cy+r*2);ctx.stroke();
+  }
+
+  // highlight dot
+  ctx.fillStyle = 'rgba(255,255,255,0.25)';
+  ctx.beginPath();
+  ctx.arc(cx-r*0.25, cy-r*0.25, r*0.25, 0, Math.PI*2);
+  ctx.fill();
+
+  ctx.restore();
+
+  // glow
+  ctx.save();
+  ctx.shadowColor = '#FCCC0A88';
+  ctx.shadowBlur = 8;
+  ctx.strokeStyle = '#FCCC0A';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.arc(cx, cy, r, 0, Math.PI*2);
+  ctx.stroke();
+  ctx.restore();
+}
+
+// draw snake body as rounded continuous line
+function drawSnake(snake, color, wafflePositions) {
+  if(snake.length === 0) return;
+  ctx.save();
+  ctx.strokeStyle = color;
+  ctx.lineWidth = CELL * 0.72;
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  ctx.shadowColor = color + '50';
+  ctx.shadowBlur = 3;
+  ctx.beginPath();
+  snake.forEach((seg,i) => {
+    const x = seg.x*CELL+CELL/2, y = seg.y*CELL+CELL/2;
+    i===0 ? ctx.moveTo(x,y) : ctx.lineTo(x,y);
+  });
+  ctx.stroke();
+  ctx.restore();
+
+  // waffle markers in tail
+  wafflePositions.forEach(idx => {
+    if(idx < snake.length) {
+      const seg = snake[idx];
+      drawWaffle(seg.x*CELL+CELL/2, seg.y*CELL+CELL/2, CELL*0.38);
+    }
+  });
+
+  // head dot
+  ctx.save();
+  ctx.fillStyle = '#fff';
+  ctx.beginPath();
+  ctx.arc(snake[0].x*CELL+CELL/2, snake[0].y*CELL+CELL/2, CELL*0.2, 0, Math.PI*2);
+  ctx.fill();
+  ctx.restore();
+}
+
+// draw enemy snake (shorter, simpler)
+function drawEnemySnake(enemy) {
+  if(enemy.body.length === 0) return;
+  ctx.save();
+  ctx.strokeStyle = enemy.color;
+  ctx.lineWidth = CELL * 0.6;
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  ctx.globalAlpha = 0.75;
+  ctx.beginPath();
+  enemy.body.forEach((seg,i) => {
+    const x = seg.x*CELL+CELL/2, y = seg.y*CELL+CELL/2;
+    i===0 ? ctx.moveTo(x,y) : ctx.lineTo(x,y);
+  });
+  ctx.stroke();
+  // head
+  ctx.fillStyle = '#fff';
+  ctx.globalAlpha = 0.75;
+  ctx.beginPath();
+  ctx.arc(enemy.body[0].x*CELL+CELL/2, enemy.body[0].y*CELL+CELL/2, CELL*0.18, 0, Math.PI*2);
+  ctx.fill();
+  ctx.restore();
+}
+
+// ── GAME STATE ──
+let snake=[], dir={x:1,y:0}, nextDir={x:1,y:0};
+let waffleMarkers=[];
+let food=null, score=0, highScore=0, speed=1;
+let running=false, gameOver=false;
+let frame, lastTime=0, elapsed=0;
+let snakeColor='#0039A6';
+let enemies=[];
+let enemyTick=0;
+const ENEMY_INTERVAL = 4; // enemy moves every N player moves
+const ENEMY_SPAWN_SCORES = [50,100,150]; // spawn at these scores
+let spawnedAt = [];
+
+const SPEED_TABLE = [220,200,180,162,146,132,120,110,100,92];
+function getInterval(){ return SPEED_TABLE[Math.min(speed-1,SPEED_TABLE.length-1)]; }
+function rnd(a,b){ return a+Math.floor(Math.random()*(b-a+1)); }
+function pickLine(){ return LINES[Math.floor(Math.random()*LINES.length)]; }
+
+function allOccupied(){
+  const occ = new Set(snake.map(s=>s.x+','+s.y));
+  enemies.forEach(e=>e.body.forEach(s=>occ.add(s.x+','+s.y)));
+  return occ;
+}
+
+function placeFood(){
+  const occ = allOccupied();
+  let p;
+  do { p={x:rnd(1,COLS-2),y:rnd(1,ROWS-2)}; }
+  while(occ.has(p.x+','+p.y));
+  food={...p};
+}
+
+function spawnEnemy(idx){
+  const color = ENEMY_COLORS[idx % ENEMY_COLORS.length];
+  // find free spot far from player head
+  let sx,sy;
+  for(let attempt=0;attempt<50;attempt++){
+    sx=rnd(2,COLS-3); sy=rnd(2,ROWS-3);
+    const dx=Math.abs(sx-snake[0].x), dy=Math.abs(sy-snake[0].y);
+    if(dx+dy>8) break;
+  }
+  const dirs=[{x:1,y:0},{x:-1,y:0},{x:0,y:1},{x:0,y:-1}];
+  const d=dirs[Math.floor(Math.random()*4)];
+  const body=[{x:sx,y:sy},{x:sx-d.x,y:sy-d.y},{x:sx-d.x*2,y:sy-d.y*2}];
+  enemies.push({body,dir:d,color,turnCountdown:rnd(3,8)});
+}
+
+function moveEnemies(){
+  enemies.forEach(enemy=>{
+    const head=enemy.body[0];
+    let nd={...enemy.dir};
+    // turn at walls or randomly
+    const nx=head.x+nd.x, ny=head.y+nd.y;
+    enemy.turnCountdown--;
+    if(nx<1||nx>=COLS-1||ny<1||ny>=ROWS-1||enemy.turnCountdown<=0){
+      const options=[{x:1,y:0},{x:-1,y:0},{x:0,y:1},{x:0,y:-1}]
+        .filter(d=>!(d.x===-enemy.dir.x&&d.y===-enemy.dir.y));
+      const valid=options.filter(d=>{
+        const tx=head.x+d.x,ty=head.y+d.y;
+        return tx>=1&&tx<COLS-1&&ty>=1&&ty<ROWS-1;
+      });
+      if(valid.length>0){
+        nd=valid[Math.floor(Math.random()*valid.length)];
+        enemy.dir=nd;
+      }
+      enemy.turnCountdown=rnd(4,10);
+    }
+    const newHead={x:head.x+enemy.dir.x,y:head.y+enemy.dir.y};
+    if(newHead.x<1||newHead.x>=COLS-1||newHead.y<1||newHead.y>=ROWS-1) return;
+    enemy.body.unshift(newHead);
+    enemy.body.pop();
+  });
+}
+
+function checkEnemyCollision(){
+  const hx=snake[0].x,hy=snake[0].y;
+  for(const e of enemies){
+    for(const seg of e.body){
+      if(seg.x===hx&&seg.y===hy) return true;
+    }
+  }
+  return false;
+}
+
+function initGame(){
+  const cx=Math.floor(COLS/2),cy=Math.floor(ROWS/2);
+  snake=[{x:cx,y:cy},{x:cx-1,y:cy},{x:cx-2,y:cy},{x:cx-3,y:cy}];
+  dir={x:1,y:0};nextDir={x:1,y:0};
+  waffleMarkers=[];
+  score=0;speed=1;running=true;gameOver=false;
+  snakeColor='#0039A6';
+  enemies=[];spawnedAt=[];enemyTick=0;
+  placeFood();
+  document.getElementById('score-val').textContent='0';
+  document.getElementById('speed-val').textContent='1';
+  document.getElementById('enemy-val').textContent='0';
+}
+
+function update(){
+  dir=nextDir;
+  const head={x:snake[0].x+dir.x,y:snake[0].y+dir.y};
+  if(head.x<0||head.x>=COLS||head.y<0||head.y>=ROWS||
+     snake.some(s=>s.x===head.x&&s.y===head.y)||
+     checkEnemyCollision()){
+    endGame();return;
+  }
+  snake.unshift(head);
+
+  // check collision with enemy after moving
+  if(checkEnemyCollision()){endGame();return;}
+
+  if(food&&head.x===food.x&&head.y===food.y){
+    score+=10;
+    speed=Math.min(10,1+Math.floor(score/80));
+    snakeColor=pickLine().c;
+    if(snakeColor==='#FCCC0A') snakeColor='#0039A6';
+    // mark waffle position in tail (current snake length before grow = index 0 after unshift)
+    waffleMarkers.push(1);
+    // shift existing markers
+    for(let i=0;i<waffleMarkers.length-1;i++) waffleMarkers[i]++;
+
+    document.getElementById('score-val').textContent=score;
+    document.getElementById('speed-val').textContent=speed;
+    playSnippet();
+    placeFood();
+
+    // spawn enemies
+    ENEMY_SPAWN_SCORES.forEach((threshold,i)=>{
+      if(score>=threshold&&!spawnedAt.includes(i)){
+        spawnedAt.push(i);
+        spawnEnemy(i);
+        document.getElementById('enemy-val').textContent=enemies.length;
+      }
+    });
+  } else {
+    snake.pop();
+    // shift waffle markers, remove if fallen off
+    for(let i=0;i<waffleMarkers.length;i++) waffleMarkers[i]++;
+    waffleMarkers=waffleMarkers.filter(idx=>idx<snake.length);
+  }
+
+  // move enemies every N ticks
+  enemyTick++;
+  if(enemyTick>=ENEMY_INTERVAL){
+    enemyTick=0;
+    moveEnemies();
+    if(checkEnemyCollision()){endGame();return;}
+  }
+}
+
+function loop(ts){
+  if(!running)return;
+  const dt=ts-lastTime;lastTime=ts;
+  elapsed+=dt;
+  if(elapsed>=getInterval()){elapsed=0;update();}
+  if(!running)return;
+  drawBg();
+  if(food) drawWaffle(food.x*CELL+CELL/2,food.y*CELL+CELL/2,CELL*0.42);
+  enemies.forEach(drawEnemySnake);
+  drawSnake(snake,snakeColor,waffleMarkers);
+  frame=requestAnimationFrame(loop);
+}
+
+function endGame(){
+  running=false;gameOver=true;
+  if(score>highScore){highScore=score;document.getElementById('best-val').textContent=highScore;}
+  drawBg();
+  if(food) drawWaffle(food.x*CELL+CELL/2,food.y*CELL+CELL/2,CELL*0.42);
+  enemies.forEach(drawEnemySnake);
+  drawSnake(snake,snakeColor,waffleMarkers);
+  showGameOver();
+  stopAudio();
+}
+
+const overlay=document.getElementById('overlay');
+
+function showGameOver(){
+  overlay.innerHTML=`
+    <div class="overlay-sub">DERAILED</div>
+    <div class="overlay-score">${score}</div>
+    <div class="overlay-sub">pts</div>
+    <input id="name-input" placeholder="YOUR NAME" maxlength="20" autocomplete="off" spellcheck="false"
+      style="background:transparent;border:1.5px solid #FCCC0A;color:#f5f5f0;font-family:'DM Mono',monospace;font-size:16px;padding:8px 16px;text-align:center;width:200px;letter-spacing:2px;outline:none;margin-top:4px;">
+    <button class="btn" id="submit-score-btn">SAVE SCORE</button>
+    <button class="btn-ghost" id="restart-btn">PLAY AGAIN</button>
+  `;
+  overlay.classList.remove('hidden');
+  document.getElementById('submit-score-btn').addEventListener('click',()=>{
+    const name=document.getElementById('name-input').value.trim()||'Anonymous';
+    submitScore(name,score);
+    overlay.classList.add('hidden');
+    startGame();
+  });
+  document.getElementById('restart-btn').addEventListener('click',()=>{
+    overlay.classList.add('hidden');
+    startGame();
+  });
+}
+
+function startGame(){
+  initGame();lastTime=0;elapsed=0;
+  cancelAnimationFrame(frame);
+  startAudio();
+  frame=requestAnimationFrame(loop);
+}
+
+document.getElementById('start-btn').addEventListener('click',()=>{
+  overlay.classList.add('hidden');
+  startGame();
+});
+
+document.querySelectorAll('.dpad-btn').forEach(btn=>{
+  ['touchstart','mousedown'].forEach(ev=>{
+    btn.addEventListener(ev,e=>{
+      e.preventDefault();
+      const d=btn.dataset.dir;
+      if(d==='UP'&&dir.y!==1)    nextDir={x:0,y:-1};
+      if(d==='DOWN'&&dir.y!==-1) nextDir={x:0,y:1};
+      if(d==='LEFT'&&dir.x!==1)  nextDir={x:-1,y:0};
+      if(d==='RIGHT'&&dir.x!==-1)nextDir={x:1,y:0};
+    });
+  });
+});
+
+document.addEventListener('keydown',e=>{
+  if(gameOver&&(e.key==='Enter'||e.key===' ')){overlay.classList.add('hidden');startGame();return;}
+  const map={ArrowUp:{x:0,y:-1},ArrowDown:{x:0,y:1},ArrowLeft:{x:-1,y:0},ArrowRight:{x:1,y:0}};
+  const nd=map[e.key];
+  if(!nd)return;
+  e.preventDefault();
+  if(nd.x!==0&&dir.x===0)nextDir=nd;
+  if(nd.y!==0&&dir.y===0)nextDir=nd;
+});
+
+// ── AUDIO ──
+const audio=document.getElementById('track');
+const dot=document.getElementById('audio-dot');
+const statusEl=document.getElementById('audio-status');
+let audioDuration=0;
+
+audio.addEventListener('loadedmetadata',()=>{audioDuration=audio.duration;statusEl.textContent='track ready';});
+audio.addEventListener('error',()=>{statusEl.textContent='audio unavailable';});
+
+function playSnippet(){
+  if(!audioDuration)return;
+  const start=Math.random()*(audioDuration-12);
+  audio.currentTime=start;
+  audio.play().catch(()=>{});
+  dot.classList.add('playing');statusEl.textContent='playing...';
+  clearTimeout(audio._stopTimer);
+  audio._stopTimer=setTimeout(()=>{
+    audio.pause();dot.classList.remove('playing');statusEl.textContent='collect a waffle';
+  },4500);
+}
+function startAudio(){statusEl.textContent='collect a waffle';dot.classList.remove('playing');}
+function stopAudio(){audio.pause();clearTimeout(audio._stopTimer);dot.classList.remove('playing');statusEl.textContent='track ready';}
+
+// ── LEADERBOARD ──
+const API='https://YOUR_RAILWAY_URL';
+async function fetchLeaderboard(){
+  const el=document.getElementById('lb-list');
+  try{
+    const r=await fetch(API+'/leaderboard');
+    if(!r.ok)throw new Error();
+    const data=await r.json();
+    if(!data.length){el.innerHTML='<div class="lb-empty">No scores yet — be the first!</div>';return;}
+    el.innerHTML=data.map((row,i)=>`
+      <div class="lb-row">
+        <div class="lb-rank${i<3?' top':''}">${i+1}</div>
+        <div class="lb-name">${esc(row.name)}</div>
+        <div class="lb-pts">${row.score}</div>
+      </div>`).join('');
+  }catch{el.innerHTML='<div class="lb-empty">Leaderboard coming soon!</div>';}
+}
+async function submitScore(name,pts){
+  try{
+    await fetch(API+'/score',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,score:pts})});
+    setTimeout(fetchLeaderboard,600);
+  }catch{}
+}
+function esc(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+document.getElementById('lb-refresh').addEventListener('click',fetchLeaderboard);
+fetchLeaderboard();
+</script>
+</body>
+</html>
