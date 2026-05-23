@@ -120,13 +120,7 @@ body{font-family:'DM Mono',monospace;color:var(--white);}
       <button class="dpad-btn" style="grid-area:d" data-dir="DOWN">▼</button>
     </div>
   </div>
-  <div id="leaderboard-panel">
-    <div class="lb-header">
-      <div class="lb-title">🚇 Top Riders</div>
-      <span class="lb-refresh" id="lb-refresh">↻ refresh</span>
-    </div>
-    <div id="lb-list"><div class="lb-empty">Leaderboard coming soon!</div></div>
-  </div>
+
 </div>
 <audio id="track" preload="auto">
   <source src="stroopwafel_kita.mp3" type="audio/mpeg">
@@ -306,6 +300,10 @@ function showGameOver(){
     <button class="btn" id="submit-score-btn">SAVE SCORE</button>
     <a href="${PRESAVE_URL}" target="_blank" style="background:#FCCC0A;color:#0a0a0a;font-family:'Bebas Neue',sans-serif;font-size:18px;letter-spacing:3px;padding:10px 32px;cursor:pointer;text-decoration:none;display:inline-block;">🚇 PRE-SAVE NOW</a>
     <button class="btn-ghost" id="restart-btn">PLAY AGAIN</button>
+    <div style="width:100%;max-width:320px;margin-top:8px;">
+      <div style="font-family:'Bebas Neue',sans-serif;font-size:14px;letter-spacing:3px;color:#FCCC0A;margin-bottom:6px;">🚇 TOP RIDERS</div>
+      <div id="lb-list-overlay" style="font-size:11px;"></div>
+    </div>
   `;
   overlay.classList.remove('hidden');
   document.getElementById('submit-score-btn').addEventListener('click',()=>{
@@ -315,6 +313,7 @@ function showGameOver(){
     startGame();
   });
   document.getElementById('restart-btn').addEventListener('click',()=>{overlay.classList.add('hidden');startGame();});
+  fetchLeaderboardOverlay();
 }
 function startGame(){initGame();lastTime=0;elapsed=0;cancelAnimationFrame(frame);startAudio();frame=requestAnimationFrame(loop);}
 document.getElementById('start-btn').addEventListener('click',()=>{overlay.classList.add('hidden');startGame();});
@@ -350,7 +349,24 @@ function stopAudio(){audio.pause();clearTimeout(audio._stopTimer);dot.classList.
 const SB_URL='https://dmgahmegkygwixmifdoj.supabase.co';
 const SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRtZ2FobWVna3lnd2l4bWlmZG9qIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk1NTUwMDYsImV4cCI6MjA5NTEzMTAwNn0.bYI1Bn0HdvB-Vzo1cj1bmIbAfAvMEW7lSGiW4zcEd90';
 
-async function fetchLeaderboard(){
+async function fetchLeaderboardOverlay(){
+  const el=document.getElementById('lb-list-overlay');
+  if(!el)return;
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/scores?select=name,score&order=score.desc&limit=5`,{
+      headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}
+    });
+    if(!r.ok)throw new Error();
+    const data=await r.json();
+    if(!data.length){el.innerHTML='<div style="color:#A7A9AC;letter-spacing:1px;">No scores yet!</div>';return;}
+    el.innerHTML=data.map((row,i)=>`
+      <div style="display:flex;gap:10px;padding:4px 0;border-bottom:1px solid rgba(255,255,255,0.08);">
+        <div style="font-family:\'Bebas Neue\',sans-serif;font-size:14px;color:${i<3?'#FCCC0A':'#A7A9AC'};min-width:16px;">${i+1}</div>
+        <div style="flex:1;color:#f5f5f0;letter-spacing:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(row.name)}</div>
+        <div style="font-family:\'Bebas Neue\',sans-serif;font-size:14px;color:#FCCC0A;">${row.score}</div>
+      </div>`).join('');
+  }catch{el.innerHTML='<div style="color:#A7A9AC;">—</div>';}
+}
   const el=document.getElementById('lb-list');
   try{
     const r=await fetch(`${SB_URL}/rest/v1/scores?select=name,score&order=score.desc&limit=10`,{
@@ -385,8 +401,6 @@ async function submitScore(name,pts){
 }
 
 function esc(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
-document.getElementById('lb-refresh').addEventListener('click',fetchLeaderboard);
-fetchLeaderboard();
 </script>
 </body>
 </html>
